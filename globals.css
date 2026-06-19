@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  ::selection {
+    background-color: #95D5B2;
+    color: #14171F;
+  }
+  :focus-visible {
+    outline: 2px solid #2D6A4F;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-feature-settings: 'tnum';
+  }
+}

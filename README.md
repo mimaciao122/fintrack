@@ -1,45 +1,91 @@
-# fintrack
-# Finance Tracker
+# Saldo — Personal Finance Manager
 
-A personal finance management application designed to help users track their income, manage daily expenses, and stay within strict budget limits. This tool is built to provide transparency and control over your financial health, especially for those navigating periods without a fixed income.
+App completa per la gestione finanziaria personale multi-utente: entrate, uscite, budget per categoria con calcolo del residuo giornaliero.
 
-## Key Features
+## Stack
+- **Next.js 14** (App Router) + TypeScript
+- **Tailwind CSS** (palette custom, font Fraunces/Inter/JetBrains Mono)
+- **Supabase** (PostgreSQL + Auth + Row Level Security)
+- **Zod** per validazione condivisa client/server
 
-*   **Daily Budgeting:** Automatically calculates a recommended daily spending limit based on your total capital and time remaining until your next financial milestone.
-*   **Transaction Tracking:** Easily log income and expenses with categories and descriptions.
-*   **Budget Alerts:** Get real-time feedback when your spending exceeds your calculated daily allowance.
-*   **Secure Data:** Built with a robust database architecture ensuring user data privacy and separation.
+## Setup
 
-## Tech Stack
+### 1. Crea il progetto Supabase
+Vai su [supabase.com](https://supabase.com), crea un nuovo progetto, poi:
 
-*   **Framework:** [Next.js](https://nextjs.org/)
-*   **Styling:** [Tailwind CSS](https://tailwindcss.com/)
-*   **Backend & Database:** [Supabase](https://supabase.com/) (PostgreSQL)
-*   **Deployment:** [Vercel](https://vercel.com/)
-
-## Getting Started
-
-1.  **Clone the repository:**
 ```bash
-    git clone [https://github.com/yourusername/finance-tracker.git](https://github.com/yourusername/finance-tracker.git)
-    ```
-2.  **Install dependencies:**
-```bash
-    npm install
-    ```
-3.  **Setup Environment Variables:**
-    Create a `.env.local` file and add your Supabase credentials:
-```env
-    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-    ```
-4.  **Run the development server:**
-```bash
-    npm run dev
-    ```
+# Installa Supabase CLI se non l'hai già
+npm install -g supabase
 
-## Contributing
-Feel free to open issues or submit pull requests if you have suggestions for improvement.
+# Collega il progetto locale
+supabase link --project-ref <il-tuo-project-ref>
 
----
-*Built by Oumaima Abbassi*
+# Applica la migrazione (schema + RLS + funzioni + seed)
+supabase db push
+```
+
+In alternativa, copia il contenuto di `supabase/migrations/0001_init.sql` e incollalo nel **SQL Editor** della dashboard Supabase, poi esegui.
+
+### 2. Variabili d'ambiente
+Copia `.env.local.example` in `.env.local` e compila con i valori da
+**Project Settings → API** sulla dashboard Supabase:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...   # solo se servono operazioni server-side privilegiate
+```
+
+### 3. Installa e avvia
+```bash
+npm install
+npm run dev
+```
+
+Apri [http://localhost:3000](http://localhost:3000) — verrai reindirizzato a `/login`.
+
+### 4. Deploy
+```bash
+npm i -g vercel
+vercel
+```
+Imposta le stesse variabili d'ambiente nel pannello Vercel (Project Settings → Environment Variables).
+
+## Cosa fa la migrazione SQL
+- Crea le tabelle `profiles`, `categories`, `transactions`, `budgets`, `audit_log`
+- Attiva **Row Level Security** su tutte le tabelle: ogni utente vede e modifica solo le proprie righe (`auth.uid()`)
+- Crea un profilo automaticamente alla registrazione (trigger su `auth.users`)
+- Definisce la funzione `daily_budget_remaining(category_id)` per il calcolo dinamico del budget residuo
+- Crea la view `budget_overview` usata dalla dashboard
+- Inserisce 8 categorie di sistema condivise (stipendio, spesa, trasporti, ecc.)
+- Aggiunge un trigger di audit su `transactions` (tracciabilità per dispute)
+
+## Sicurezza implementata
+- RLS attiva su ogni tabella, nessuna query bypassa il filtro per utente
+- `user_id` non è mai accettato dal client: viene sempre impostato server-side leggendo la sessione (`app/actions/*.ts`)
+- Validazione Zod sia lato client (UX) che server (sicurezza reale)
+- Middleware Next.js protegge `/dashboard/*` redirigendo utenti non autenticati
+- Service role key non è mai esposta al bundle client (solo `NEXT_PUBLIC_*` arrivano al browser)
+
+## Struttura cartelle
+```
+app/
+  actions/        Server Actions (auth, transactions, budgets) — qui vive la logica di business
+  dashboard/       Pagina principale (Server Component)
+  login/           Pagina di autenticazione (Client Component)
+components/        TransactionForm, TransactionList, BudgetCard, BudgetForm
+lib/
+  supabase/        Client browser/server Supabase
+  validations.ts   Schemi Zod condivisi
+supabase/
+  migrations/      SQL: schema, RLS, funzioni, seed
+types/             Tipi TypeScript di dominio
+middleware.ts       Protezione route + refresh sessione
+```
+
+## Prossimi sviluppi consigliati
+- Grafici di andamento mensile (Recharts) per categoria
+- Notifiche quando il budget residuo giornaliero scende sotto una soglia
+- Esportazione CSV/PDF dei movimenti
+- Categorie ricorrenti (es. abbonamenti) con generazione automatica transazioni
+- Test E2E sulle policy RLS con due utenti distinti (isolamento dati)
